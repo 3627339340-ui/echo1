@@ -1,0 +1,13 @@
+cat > vercel.json <<'EOF'
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/generate.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/generate.js" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
+EOF

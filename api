@@ -1,0 +1,54 @@
+mkdir -p api
+cat > api/generate.js <<'EOF'
+import axios from "axios";
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+  try {
+    const { input } = req.body;
+    if (!input || input.trim().length === 0) {
+      return res.status(400).json({ error: "empty input" });
+    }
+
+    const ZHIPU_API_KEY = process.env.ZHIPU_API_KEY;
+    if (!ZHIPU_API_KEY) {
+      return res.status(500).json({ error: "ZHIPU_API_KEY not set in environment" });
+    }
+
+    // 调用智谱 AI（BigModel）chat completions 接口
+    const apiResp = await axios.post(
+      "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      {
+        model: "glm-4",
+        messages: [
+          {
+            role: "user",
+            content: `请扮演5年后的我，根据用户输入"${input}" 写一封温暖、真诚的信件，使用第一人称“我”，长度在250到350字之间。`
+          }
+        ],
+        temperature: 0.8,
+        max_tokens: 800
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${ZHIPU_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 30000
+      }
+    );
+
+    const letter = apiResp?.data?.choices?.[0]?.message?.content || apiResp?.data?.text || "";
+    if(!letter) {
+      return res.status(200).json({ reply: "抱歉，AI 未返回内容，请稍后重试。" });
+    }
+    return res.status(200).json({ reply: letter });
+  } catch (err) {
+    console.error("Error calling Zhipu API:", err.message || err);
+    const fallback = `亲爱的现在的我：\n\n我是未来的你。看到你的分享，我想对你说：一切都会慢慢好起来。给自己一些耐心，你已经很棒了。\n\n未来的你`;
+    return res.status(200).json({ reply: fallback, error: (err.message || String(err)) });
+  }
+};
+EOF

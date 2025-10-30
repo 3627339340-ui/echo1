@@ -1,12 +1,11 @@
 {
-  "name": "future-echo",
-  "version": "1.0.0",
-  "description": "未来回音 - 智谱AI信件生成器",
-  "main": "index.html",
-  "scripts": {
-    "start": "vercel dev"
-  },
-  "dependencies": {
-    "axios": "^1.6.0"
-  }
+  "version": 2,
+  "builds": [
+    { "src": "api/generate.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
 }

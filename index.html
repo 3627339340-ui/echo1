@@ -1,4 +1,3 @@
-cat > index.html <<'EOF'
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -6,7 +5,6 @@ cat > index.html <<'EOF'
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <title>未来回音 💌</title>
 <style>
-/* （样式与之前示例一致 — 保持UI） */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{
   font-family:'PingFang SC','Segoe UI',sans-serif;
@@ -21,8 +19,6 @@ body{
 .dot1{width:240px;height:240px;background:radial-gradient(circle,#ffd6a5,#ffb5a7);top:10%;left:5%;}
 .dot2{width:280px;height:280px;background:radial-gradient(circle,#bde0fe,#caffbf);bottom:5%;right:5%;animation-delay:3s;}
 @keyframes float{from{transform:translateY(0)}to{transform:translateY(-25px)}}
-
-/* 信封外观 */
 .envelope{
   position:relative;width:90%;max-width:640px;height:380px;
   background:linear-gradient(145deg,#fff3e0,#ffe7eb);
@@ -46,8 +42,6 @@ body{
   z-index:2;
 }
 .envelope.open .flap{transform:rotateX(180deg);}
-
-/* 信纸容器 */
 .container{
   position:absolute;bottom:0;
   width:90%;max-width:600px;
@@ -59,7 +53,6 @@ h1{text-align:center;font-size:2rem;
   background:linear-gradient(135deg,#ffb5a7,#bde0fe);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;}
 .subtitle{text-align:center;color:#666;margin-bottom:20px;}
-
 textarea{
   width:100%;min-height:120px;border:2px solid #f0f0f0;
   border-radius:14px;padding:15px;font-size:16px;background:#fff;
@@ -73,8 +66,6 @@ button{
   transition:.3s;color:#333;
 }
 button:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(255,181,167,.25);}
-
-/* 信纸展示层 */
 #letterOverlay{
   position:fixed;
   top:0;left:0;
@@ -86,6 +77,136 @@ button:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(255,181,167,.
   padding:20px;
   z-index:10;
   animation:fadeIn .8s ease forwards;
+}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+#futureText{
+  max-width:90%;
+  max-height:85vh;
+  overflow:auto;
+  line-height:1.8;
+  background:#fffaf7;
+  border-left:4px solid #ffd6a5;
+  border-radius:16px;
+  box-shadow:0 8px 25px rgba(0,0,0,.1);
+  padding:20px;
+  transition:transform 0.5s ease,box-shadow 1s ease;
+  text-align:left;
+  white-space:pre-wrap;
+}
+.playing{animation:glow 2s ease-in-out infinite alternate;}
+@keyframes glow{
+  0%{box-shadow:0 0 10px rgba(255,181,167,0.2);}
+  100%{box-shadow:0 0 25px rgba(255,181,167,0.6);}
+}
+</style>
+</head>
+<body>
+<div class="dot dot1"></div>
+<div class="dot dot2"></div>
+
+<div class="envelope" id="envelope" onclick="openEnvelope()">
+  <div class="flap"></div>
+
+  <div class="container" id="letterContainer">
+    <h1>未来回音</h1>
+    <p class="subtitle">写下此刻的心声，遇见未来的自己 💌</p >
+    <textarea id="userInput" placeholder="写下你的想法、困惑或愿望..."></textarea>
+    <button id="generateBtn" onclick="generateCapsule()">✨ 生成未来回音</button>
+    <div id="loading" style="display:none;text-align:center;margin-top:20px;color:#888;">🤖 AI 正在构思来自未来的信件...</div>
+  </div>
+</div>
+
+<div id="letterOverlay">
+  <p id="futureText"></p >
+  <div style="margin-top:20px;display:flex;gap:10px;">
+    <button onclick="playVoice()">▶️ 播放语音</button>
+    <button onclick="closeLetter()">📩 收回信纸</button>
+  </div>
+</div>
+
+<script>
+let opened=false,currentVoiceText='',utter=null;
+function openEnvelope(){
+  if(opened)return;
+  document.getElementById('envelope').classList.add('open');
+  opened=true;
+}
+async function generateCapsule(){
+  const input=document.getElementById('userInput').value.trim();
+  if(!input)return alert('请先写下一些内容吧！');
+  const btn=document.getElementById('generateBtn');
+  const loading=document.getElementById('loading');
+  const textBox=document.getElementById('futureText');
+  const letterOverlay=document.getElementById('letterOverlay');
+  btn.disabled=true;loading.style.display='block';
+  localStorage.setItem('future_echo_draft', input);
+  try{
+    const resp = await fetch('/api/generate', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ input })
+    });
+    if(!resp.ok) throw new Error('网络错误: ' + resp.status);
+    const data = await resp.json();
+    const letter = data.reply || data.result || data.error || '';
+    if(!letter) throw new Error('AI 未返回内容');
+    textBox.textContent = letter;
+    currentVoiceText = letter;
+    autoFitFont(textBox);
+    letterOverlay.style.display='flex';
+    openEnvelope();
+  }catch(err){
+    console.error('生成失败：', err);
+    const fallback = generateSmartFallback(localStorage.getItem('future_echo_draft') || input);
+    textBox.textContent = fallback;
+    currentVoiceText = fallback;
+    letterOverlay.style.display='flex';
+    openEnvelope();
+  }finally{
+    loading.style.display='none';
+    btn.disabled=false;
+  }
+}
+function generateSmartFallback(input){
+  if(!input) return '亲爱的自己：\n\n请给自己一段鼓励，你值得被温柔以待。';
+  return `亲爱的现在的我：\n\n看到你写下：“${input}”。请相信，未来会温柔以待。给自己耐心和温柔。\n\n未来的你`;
+}
+function autoFitFont(el){
+  let fontSize=18;
+  el.style.fontSize=fontSize+'px';
+  while(el.scrollHeight>window.innerHeight*0.8 && fontSize>12){
+    fontSize--;el.style.fontSize=fontSize+'px';
+  }
+}
+function closeLetter(){
+  stopVoice();
+  document.getElementById('letterOverlay').style.display='none';
+}
+function playVoice(){
+  if(!currentVoiceText)return;
+  stopVoice();
+  if(!('speechSynthesis' in window)){alert('此设备暂不支持语音合成');return;}
+  utter=new SpeechSynthesisUtterance(currentVoiceText);
+  utter.lang='zh-CN';utter.rate=0.93;utter.pitch=1.0;
+  const textBox=document.getElementById('futureText');
+  textBox.classList.add('playing');
+  utter.onend=()=>textBox.classList.remove('playing');
+  speechSynthesis.speak(utter);
+}
+function stopVoice(){
+  if('speechSynthesis' in window)speechSynthesis.cancel();
+  document.getElementById('futureText').classList.remove('playing');
+}
+window.addEventListener('load', ()=>{
+  const draft = localStorage.getItem('future_echo_draft');
+  if(draft && draft.length>5){
+    document.getElementById('userInput').value = draft;
+    setTimeout(()=>{ if(navigator.onLine) generateCapsule(); }, 1200);
+  }
+});
+</script>
+</body>
+</html>  animation:fadeIn .8s ease forwards;
 }
 @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
 #futureText{

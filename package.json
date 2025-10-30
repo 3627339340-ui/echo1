@@ -1,0 +1,11 @@
+cat > package.json <<'EOF'
+{
+  "name": "future-echo",
+  "version": "1.0.0",
+  "description": "未来回音 - 使用智谱AI生成来自未来的信件",
+  "type": "module",
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
+EOF
